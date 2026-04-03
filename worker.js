@@ -4,9 +4,7 @@ export default {
 
     const allowedOrigins = [
       "https://k4k1h4r4.github.io",
-      // Optional for local testing:
-      // "http://127.0.0.1:5500",
-      // "http://localhost:5500",
+      // add custom domain here if you use one
     ];
 
     const requestOrigin = request.headers.get("Origin");
@@ -51,8 +49,9 @@ export default {
       });
     }
 
-    const prefix = "/api/spoonacular";
-    if (!url.pathname.startsWith(prefix)) {
+    const upstream = getUpstream(url, env);
+
+    if (!upstream) {
       return new Response(JSON.stringify({ error: "Not found" }), {
         status: 404,
         headers: {
@@ -62,16 +61,8 @@ export default {
       });
     }
 
-    const upstreamPath = url.pathname.slice(prefix.length);
-    const upstreamUrl = new URL(`https://api.spoonacular.com${upstreamPath}`);
-
-    for (const [key, value] of url.searchParams.entries()) {
-      upstreamUrl.searchParams.set(key, value);
-    }
-    upstreamUrl.searchParams.set("apiKey", env.SPOONACULAR_API_KEY);
-
     try {
-      const upstreamRes = await fetch(upstreamUrl.toString(), {
+      const upstreamRes = await fetch(upstream.toString(), {
         method: "GET",
         headers: {
           "Accept": "application/json",
@@ -102,3 +93,33 @@ export default {
     }
   },
 };
+
+function getUpstream(url, env) {
+  // Spoonacular
+  if (url.pathname.startsWith("/api/spoonacular")) {
+    const upstreamPath = url.pathname.slice("/api/spoonacular".length);
+    const upstreamUrl = new URL(`https://api.spoonacular.com${upstreamPath}`);
+
+    for (const [key, value] of url.searchParams.entries()) {
+      upstreamUrl.searchParams.set(key, value);
+    }
+
+    upstreamUrl.searchParams.set("apiKey", env.SPOONACULAR_API_KEY);
+    return upstreamUrl;
+  }
+
+  // USDA Nutrition
+  if (url.pathname.startsWith("/api/usda")) {
+    const upstreamPath = url.pathname.slice("/api/usda".length);
+    const upstreamUrl = new URL(`https://api.nal.usda.gov/fdc/v1${upstreamPath}`);
+
+    for (const [key, value] of url.searchParams.entries()) {
+      upstreamUrl.searchParams.set(key, value);
+    }
+
+    upstreamUrl.searchParams.set("api_key", env.USDA_API_KEY);
+    return upstreamUrl;
+  }
+
+  return null;
+}
