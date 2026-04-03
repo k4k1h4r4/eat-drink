@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Eat-Drink</title>
-  <!-- Meals: Spoonacular | Cocktails: CocktailDB (8s timeout) | Nutrition: USDA FoodData -->
+  <!-- Meals: Spoonacular | Cocktails: CocktailDB (8s timeout) | Food: Open Nutrition -->
   <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;1,400&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet"/>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -354,10 +354,43 @@
     }
 
     @media (max-width: 640px) {
-      header { padding: 16px 20px; }
-      .tabs { padding: 20px 20px 0; }
-      .panel { margin: 0 20px; padding: 20px; }
+      header { padding: 16px 16px; gap: 8px; flex-wrap: wrap; }
+      header span { font-size: 0.78rem; }
+      .tabs { padding: 16px 12px 0; gap: 2px; }
+      .tab { padding: 7px 14px; font-size: 0.8rem; }
+      .panel { margin: 0 12px; padding: 16px; }
       .detail-layout { grid-template-columns: 1fr; }
+
+      /* Search row: stack buttons below input on small screens */
+      .search-row {
+        flex-wrap: wrap;
+      }
+      .search-row input {
+        flex: 1 1 100%;   /* full width on its own line */
+      }
+      .search-row .btn {
+        flex: 1 1 auto;   /* buttons share the second row equally */
+      }
+
+      /* Cards: 2-up on phone, single column on very small */
+      .cards {
+        grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+      }
+
+      /* Nutrition grid: 2 columns on phone */
+      .nutrition-grid {
+        grid-template-columns: repeat(2, 1fr);
+      }
+
+      /* Detail heading a bit smaller */
+      .detail h2 { font-size: 1.3rem; }
+    }
+
+    @media (max-width: 380px) {
+      .tabs { padding: 12px 8px 0; }
+      .tab { padding: 6px 10px; font-size: 0.75rem; }
+      .panel { margin: 0 8px; padding: 14px; }
+      .cards { grid-template-columns: 1fr; }
     }
   </style>
 </head>
@@ -365,7 +398,7 @@
 
 <header>
   <h1>Eat-Drink</h1>
-  <span>Spoonacular · CocktailDB · USDA FoodData</span>
+  <span>Spoonacular · CocktailDB · Open Nutrition</span>
 </header>
 
 <div class="tabs" role="tablist" aria-label="Eat-Drink sections">
@@ -385,11 +418,11 @@
   <div id="meals" class="section active" role="tabpanel" aria-labelledby="tab-meals">
     <div id="meals-list">
       <div class="search-row">
-        <input id="meal-input" type="text" placeholder="Search meals… e.g. chicken, pasta" onkeydown="if(event.key==='Enter')searchMeals()"/>
+        <input id="meal-input" type="text" placeholder="Search for things to eat..." onkeydown="if(event.key==='Enter')searchMeals()"/>
         <button class="btn btn-primary" onclick="searchMeals()">Search</button>
         <button class="btn btn-ghost" onclick="randomMeal()">Random</button>
       </div>
-      <div id="meal-results" class="status">Search for a meal or hit Random to get started.</div>
+      <div id="meal-results" class="status">Search for a recipe or hit Random and let the Gods decide.</div>
     </div>
     <div id="meal-detail" class="detail"></div>
   </div>
@@ -397,11 +430,11 @@
   <div id="cocktails" class="section" role="tabpanel" aria-labelledby="tab-cocktails">
     <div id="cocktails-list">
       <div class="search-row">
-        <input id="cocktail-input" type="text" placeholder="Search cocktails… e.g. margarita, gin" onkeydown="if(event.key==='Enter')searchCocktails()"/>
+        <input id="cocktail-input" type="text" placeholder="Search for things to drink..." onkeydown="if(event.key==='Enter')searchCocktails()"/>
         <button class="btn btn-primary" onclick="searchCocktails()">Search</button>
         <button class="btn btn-ghost" onclick="randomCocktail()">Random</button>
       </div>
-      <div id="cocktail-results" class="status">Search for a cocktail or hit Random.</div>
+      <div id="cocktail-results" class="status">Search for a cocktail or get wild and hit Random.</div>
     </div>
     <div id="cocktail-detail" class="detail"></div>
   </div>
@@ -409,11 +442,11 @@
   <div id="food" class="section" role="tabpanel" aria-labelledby="tab-food">
     <div id="food-list">
       <div class="search-row">
-        <input id="food-input" type="text" placeholder="Search by product name or barcode… e.g. nutella" onkeydown="if(event.key==='Enter')searchFood()"/>
+        <input id="food-input" type="text" placeholder="Search for any food you can think of..." onkeydown="if(event.key==='Enter')searchFood()"/>
         <button class="btn btn-primary" onclick="searchFood()">Search</button>
       </div>
     </div>
-    <div id="food-results" class="status">Search for any food product to see nutritional info.</div>
+    <div id="food-results" class="status">Search for any food to see how unhealthy it is.</div>
     <div id="food-detail" class="detail"></div>
   </div>
 
