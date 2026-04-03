@@ -2,14 +2,34 @@ export default {
   async fetch(request, env) {
     const url = new URL(request.url);
 
+    const allowedOrigins = [
+      "https://k4k1h4r4.github.io",
+      // Optional for local testing:
+      // "http://127.0.0.1:5500",
+      // "http://localhost:5500",
+    ];
+
+    const requestOrigin = request.headers.get("Origin");
+    const isAllowedOrigin = requestOrigin && allowedOrigins.includes(requestOrigin);
+
     const corsHeaders = {
-      "Access-Control-Allow-Origin": "*",
       "Access-Control-Allow-Methods": "GET, OPTIONS",
       "Access-Control-Allow-Headers": "Content-Type",
+      "Vary": "Origin",
     };
 
+    if (isAllowedOrigin) {
+      corsHeaders["Access-Control-Allow-Origin"] = requestOrigin;
+    }
+
     if (request.method === "OPTIONS") {
-      return new Response(null, { headers: corsHeaders });
+      if (!isAllowedOrigin) {
+        return new Response("Forbidden", { status: 403 });
+      }
+      return new Response(null, {
+        status: 204,
+        headers: corsHeaders,
+      });
     }
 
     if (request.method !== "GET") {
@@ -17,7 +37,16 @@ export default {
         status: 405,
         headers: {
           "content-type": "application/json",
-          ...corsHeaders,
+          ...(isAllowedOrigin ? corsHeaders : {}),
+        },
+      });
+    }
+
+    if (!isAllowedOrigin) {
+      return new Response(JSON.stringify({ error: "Forbidden origin" }), {
+        status: 403,
+        headers: {
+          "content-type": "application/json",
         },
       });
     }
