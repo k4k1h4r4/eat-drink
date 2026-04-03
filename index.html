@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Eat-Drink</title>
-  <!-- Meals: Spoonacular | Cocktails: CocktailDB (8s timeout) | Food: Open Food Facts -->
+  <!-- Meals: Spoonacular | Cocktails: CocktailDB (8s timeout) | Nutrition: USDA FoodData -->
   <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;1,400&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet"/>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -71,7 +71,6 @@
       border-bottom: none;
       background: transparent;
       cursor: pointer;
-      box-shadow: inset 0 -1px 0 transparent;
       font-family: 'DM Sans', sans-serif;
       font-size: 0.85rem;
       font-weight: 500;
@@ -169,6 +168,7 @@
       transition: box-shadow 0.2s, transform 0.2s;
       cursor: pointer;
       background: var(--surface);
+      color: var(--text);
       padding: 0;
       text-align: left;
       width: 100%;
@@ -201,6 +201,7 @@
       font-size: 1rem;
       font-weight: 400;
       line-height: 1.3;
+      color: var(--text);
     }
 
     .card-btn p {
@@ -364,10 +365,10 @@
 
 <header>
   <h1>Eat-Drink</h1>
-  <span>Spoonacular · CocktailDB · Open Food Facts</span>
+  <span>Spoonacular · CocktailDB · USDA FoodData</span>
 </header>
 
-<div class="tabs" role="tablist" aria-label="Food dashboard sections">
+<div class="tabs" role="tablist" aria-label="Eat-Drink sections">
   <button class="tab active" id="tab-meals" role="tab" aria-selected="true" aria-controls="meals" onclick="switchTab('meals', this)">
     <span class="dot" style="background:var(--meal)"></span>Eat
   </button>
@@ -375,7 +376,7 @@
     <span class="dot" style="background:var(--cocktail)"></span>Drink
   </button>
   <button class="tab" id="tab-food" role="tab" aria-selected="false" aria-controls="food" onclick="switchTab('food', this)">
-    <span class="dot" style="background:var(--food)"></span>Food Facts
+    <span class="dot" style="background:var(--food)"></span>Nutrition
   </button>
 </div>
 
@@ -423,11 +424,32 @@
 // Preferred: point spoonacularApiBase at your own backend proxy, e.g. "/api/spoonacular"
 const CONFIG = {
   spoonacularApiBase: 'https://eat-drink.claytonstricker.workers.dev/api/spoonacular',
+  usdaApiBase: 'https://eat-drink.claytonstricker.workers.dev/api/usda',
   spoonacularKey: '',
 };
 
 const COCKTAIL_TIMEOUT_MS = 8000;
 let _foodProducts = [];
+
+
+
+function getFoodDisplayName(food) {
+  return food.description || food.lowercaseDescription || food.brandName || food.brandOwner || 'Nutrition item';
+}
+
+function getFoodBrand(food) {
+  return food.brandOwner || food.brandName || food.dataType || 'USDA';
+}
+
+function normalizeNutrients(food) {
+  const nutrients = food.foodNutrients || [];
+  return nutrients.map(n => ({
+    name: n.nutrientName || n.name || n.nutrient?.name || '',
+    number: String(n.nutrientNumber || n.number || n.nutrient?.number || ''),
+    unit: n.unitName || n.unit || n.nutrient?.unitName || '',
+    value: n.value ?? n.amount ?? n.nutrient?.amount ?? null
+  }));
+}
 
 function escapeHtml(value) {
   return String(value ?? '')
@@ -481,6 +503,11 @@ function switchTab(id, el) {
     }
   });
 
+  const foodResults = document.getElementById('food-results');
+  if (foodResults) {
+    foodResults.style.display = '';
+  }
+
   document.getElementById(id).classList.add('active');
   el.classList.add('active');
   el.setAttribute('aria-selected', 'true');
@@ -507,7 +534,6 @@ function showList(section) {
   if (list) {
     list.style.display = '';
   }
-
   if (section === 'food') {
     const foodResults = document.getElementById('food-results');
     if (foodResults) {
@@ -530,6 +556,13 @@ function buildSpoonacularUrl(path, params = {}) {
   }
 
   throw new Error('SPOONACULAR_NOT_CONFIGURED');
+}
+
+function buildUsdaUrl(path, params = {}) {
+  if (!CONFIG.usdaApiBase) throw new Error('USDA_NOT_CONFIGURED');
+  const base = CONFIG.usdaApiBase.replace(/\/+$/, '');
+  const search = new URLSearchParams(params);
+  return `${base}${path}?${search.toString()}`;
 }
 
 function spoonacularHelpMessage() {
@@ -764,7 +797,8 @@ function showCocktailDetail(d) {
   hideEl('cocktails-list');
 }
 
-// Food Facts
+// Nutrition
+
 async function searchFood() {
   const q = document.getElementById('food-input').value.trim();
   if (!q) return;
@@ -773,29 +807,15 @@ async function searchFood() {
   document.getElementById('food-detail').classList.remove('visible');
   document.getElementById('food-list').style.display = '';
   el.style.display = '';
-  el.innerHTML = spinner('Searching products…');
+  el.innerHTML = spinner('Searching nutrition…');
 
   try {
-    const isBarcode = /^\d{8,14}$/.test(q);
+    const url = buildUsdaUrl('/foods/search', { query: q, pageSize: '12' });
+    const res = await fetch(url);
+    if (!res.ok) throw new Error(`Search failed: ${res.status}`);
 
-    let data;
-    if (isBarcode) {
-      const barcodeUrl = `https://world.openfoodfacts.org/api/v2/product/${encodeURIComponent(q)}.json?fields=code,product_name,image_front_small_url,brands,categories_tags,nutriments,ingredients_text,nutriscore_grade`;
-      const res = await fetch(barcodeUrl);
-      if (!res.ok) throw new Error(String(res.status));
-      data = await res.json();
-      _foodProducts = data.product?.product_name ? [data.product] : [];
-    } else {
-      const v2Url = `https://world.openfoodfacts.org/api/v2/search?search_terms=${encodeURIComponent(q)}&page_size=12&fields=code,product_name,image_front_small_url,brands,categories_tags,nutriments,ingredients_text,nutriscore_grade`;
-      let res = await fetch(v2Url);
-      if (!res.ok) {
-        const fallbackUrl = `https://world.openfoodfacts.org/cgi/search.pl?search_terms=${encodeURIComponent(q)}&search_simple=1&action=process&json=1&page_size=12&fields=code,product_name,image_front_small_url,brands,categories_tags,nutriments,ingredients_text,nutriscore_grade`;
-        res = await fetch(fallbackUrl);
-      }
-      if (!res.ok) throw new Error(String(res.status));
-      data = await res.json();
-      _foodProducts = (data.products || []).filter(p => p.product_name);
-    }
+    const data = await res.json();
+    _foodProducts = (data.foods || []).filter(p => getFoodDisplayName(p));
 
     if (!_foodProducts.length) {
       el.innerHTML = '<div class="status">No results found.</div>';
@@ -804,59 +824,85 @@ async function searchFood() {
 
     el.innerHTML = '<div class="cards">' + _foodProducts.map((p, i) => foodCard(p, i)).join('') + '</div>';
   } catch (e) {
-    console.error('Food Facts error:', e);
-    el.innerHTML = '<div class="status error">Failed to fetch food data.</div>';
+    console.error('Nutrition error:', e);
+    let msg = e && e.message ? escapeHtml(e.message) : 'Unknown error';
+    if (e && e.message === 'USDA_NOT_CONFIGURED') {
+      msg = 'Nutrition search is not configured.';
+    }
+    el.innerHTML = `<div class="status error">Failed to fetch nutrition data.<br><span style="font-size:0.8rem;color:var(--muted)">${msg}</span></div>`;
   }
 }
 
 function foodCard(p, i) {
-  const img = safeUrl(p.image_front_small_url);
-  const brand = p.brands ? p.brands.split(',')[0] : '';
-  return `<button class="card-btn" type="button" onclick="showFoodDetail(${Number(i)})" aria-label="Open ${escapeHtml(p.product_name)}">
-    ${img ? `<img src="${img}" alt="${escapeHtml(p.product_name)}" loading="lazy" onerror="this.style.display='none'"/>` : ''}
+  const title = escapeHtml(getFoodDisplayName(p));
+  const brand = escapeHtml(getFoodBrand(p));
+  const category = escapeHtml(p.foodCategory || p.dataType || '');
+  return `<button class="card-btn" type="button" onclick="showFoodDetail(${i})" aria-label="Open ${title}">
     <div class="card-body">
-      <div class="card-label" style="color:var(--food)">${escapeHtml(brand)}</div>
-      <h3>${escapeHtml(p.product_name)}</h3>
-      ${p.nutriscore_grade ? `<p>Nutri-Score: ${escapeHtml(String(p.nutriscore_grade).toUpperCase())}</p>` : ''}
+      <div class="card-label" style="color:var(--food)">${brand}</div>
+      <h3>${title}</h3>
+      <p>${category}</p>
     </div>
   </button>`;
 }
 
-function showFoodDetail(i) {
-  const p = _foodProducts[i];
-  const n = p.nutriments || {};
-  const nutrients = [
-    { label: 'Energy', val: n['energy-kcal_100g'] ? Math.round(n['energy-kcal_100g']) + ' kcal' : '—' },
-    { label: 'Fat', val: n['fat_100g'] != null ? n['fat_100g'] + 'g' : '—' },
-    { label: 'Saturated Fat', val: n['saturated-fat_100g'] != null ? n['saturated-fat_100g'] + 'g' : '—' },
-    { label: 'Carbs', val: n['carbohydrates_100g'] != null ? n['carbohydrates_100g'] + 'g' : '—' },
-    { label: 'Sugars', val: n['sugars_100g'] != null ? n['sugars_100g'] + 'g' : '—' },
-    { label: 'Fiber', val: n['fiber_100g'] != null ? n['fiber_100g'] + 'g' : '—' },
-    { label: 'Protein', val: n['proteins_100g'] != null ? n['proteins_100g'] + 'g' : '—' },
-    { label: 'Salt', val: n['salt_100g'] != null ? n['salt_100g'] + 'g' : '—' },
-  ];
-  const img = safeUrl(p.image_front_small_url);
-  const brand = p.brands ? p.brands.split(',')[0] : '';
+async function showFoodDetail(i) {
+  let p = _foodProducts[i];
+
+  try {
+    if (p?.fdcId) {
+      const detailUrl = buildUsdaUrl(`/food/${encodeURIComponent(p.fdcId)}`);
+      const detailRes = await fetch(detailUrl);
+      if (detailRes.ok) {
+        p = await detailRes.json();
+        _foodProducts[i] = p;
+      }
+    }
+  } catch (e) {
+    console.warn('Nutrition detail fallback failed:', e);
+  }
+
+  const nutrients = normalizeNutrients(p);
+
+  function getNutrientByNames(names, numbers = []) {
+    const lowerNames = names.map(n => n.toLowerCase());
+    const match = nutrients.find(n =>
+      (n.name && lowerNames.includes(String(n.name).toLowerCase())) ||
+      (n.number && numbers.includes(String(n.number)))
+    );
+    if (match && match.value != null && match.value !== '') {
+      return `${match.value}${match.unit ? ' ' + match.unit : ''}`;
+    }
+    return '—';
+  }
+
   const det = document.getElementById('food-detail');
   det.innerHTML = `
     <button class="detail-back" onclick="showList('food')">← Back to results</button>
     <div class="detail-layout">
-      ${img ? `<img class="detail-img" src="${img}" alt="${escapeHtml(p.product_name)}" onerror="this.style.display='none'"/>` : '<div></div>'}
+      <div></div>
       <div>
-        <h2>${escapeHtml(p.product_name)}</h2>
-        <span class="tag" style="background:var(--food-light);color:var(--food)">${escapeHtml(brand || 'Unknown brand')}</span>
-        ${p.nutriscore_grade ? `<div style="margin-bottom:12px;font-size:0.88rem">Nutri-Score: <strong>${escapeHtml(String(p.nutriscore_grade).toUpperCase())}</strong></div>` : ''}
+        <h2>${escapeHtml(getFoodDisplayName(p))}</h2>
+        <span class="tag" style="background:var(--food-light);color:var(--food)">${escapeHtml(getFoodBrand(p))}</span>
+        ${p.servingSize ? `<div style="margin-bottom:12px;font-size:0.88rem;color:var(--muted)">Serving size: ${escapeHtml(String(p.servingSize))} ${escapeHtml(p.servingSizeUnit || '')}</div>` : ''}
         <div class="detail-section">
-          <h4>Nutrition per 100g</h4>
+          <h4>Nutrition</h4>
           <div class="nutrition-grid">
-            ${nutrients.map(n => `<div class="nutrient-box"><div class="val">${escapeHtml(n.val)}</div><div class="label">${escapeHtml(n.label)}</div></div>`).join('')}
+            <div class="nutrient-box"><div class="val">${escapeHtml(getNutrientByNames(['Energy'], ['208']))}</div><div class="label">Energy</div></div>
+            <div class="nutrient-box"><div class="val">${escapeHtml(getNutrientByNames(['Protein'], ['203']))}</div><div class="label">Protein</div></div>
+            <div class="nutrient-box"><div class="val">${escapeHtml(getNutrientByNames(['Total lipid (fat)', 'Total fat'], ['204']))}</div><div class="label">Fat</div></div>
+            <div class="nutrient-box"><div class="val">${escapeHtml(getNutrientByNames(['Carbohydrate, by difference', 'Carbohydrate'], ['205']))}</div><div class="label">Carbs</div></div>
+            <div class="nutrient-box"><div class="val">${escapeHtml(getNutrientByNames(['Sugars, total including NLEA', 'Sugars, total'], ['269']))}</div><div class="label">Sugars</div></div>
+            <div class="nutrient-box"><div class="val">${escapeHtml(getNutrientByNames(['Fiber, total dietary', 'Total dietary fiber'], ['291']))}</div><div class="label">Fiber</div></div>
+            <div class="nutrient-box"><div class="val">${escapeHtml(getNutrientByNames(['Sodium, Na'], ['307']))}</div><div class="label">Sodium</div></div>
           </div>
         </div>
-        ${p.ingredients_text ? `<div class="detail-section"><h4>Ingredients</h4><p style="font-size:0.82rem;line-height:1.6;color:var(--muted);margin-top:6px">${escapeHtml(p.ingredients_text)}</p></div>` : ''}
       </div>
     </div>`;
   det.classList.add('visible');
   hideEl('food-list');
+  const foodResults = document.getElementById('food-results');
+  if (foodResults) foodResults.style.display = 'none';
 }
 </script>
 
