@@ -1,0 +1,825 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Food Dashboard</title>
+  <!-- Meals: Spoonacular | Cocktails: CocktailDB (8s timeout) | Food: Open Food Facts -->
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;1,400&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet"/>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #f7f5f0;
+      --surface: #ffffff;
+      --border: #e8e4dc;
+      --text: #1a1714;
+      --muted: #8a847a;
+      --accent: #c8622a;
+      --accent-light: #f5ede6;
+      --meal: #2a6e4a;
+      --meal-light: #e8f2ec;
+      --cocktail: #3a4f7a;
+      --cocktail-light: #e8ecf4;
+      --food: #7a4a2a;
+      --food-light: #f2ece8;
+      --radius: 12px;
+      --shadow: 0 1px 3px rgba(0,0,0,0.06), 0 4px 16px rgba(0,0,0,0.06);
+    }
+
+    body {
+      font-family: 'DM Sans', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      font-size: 15px;
+    }
+
+    header {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 20px 40px;
+      display: flex;
+      align-items: baseline;
+      gap: 16px;
+    }
+
+    header h1 {
+      font-family: 'Playfair Display', serif;
+      font-size: 1.6rem;
+      font-weight: 600;
+      letter-spacing: -0.02em;
+    }
+
+    header span {
+      color: var(--muted);
+      font-size: 0.85rem;
+      font-weight: 300;
+    }
+
+    .tabs {
+      display: flex;
+      gap: 4px;
+      padding: 24px 40px 0;
+    }
+
+    .tab {
+      padding: 8px 20px;
+      border-radius: 8px 8px 0 0;
+      border: 1px solid transparent;
+      border-bottom: none;
+      background: transparent;
+      cursor: pointer;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 0.85rem;
+      font-weight: 500;
+      color: var(--muted);
+      transition: all 0.15s;
+      position: relative;
+      bottom: -1px;
+    }
+
+    .tab:hover, .tab:focus-visible { color: var(--text); background: var(--surface); }
+    .tab:focus-visible, .card-btn:focus-visible, .btn:focus-visible, .detail-back:focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: 2px;
+    }
+
+    .tab.active {
+      background: var(--surface);
+      border-color: var(--border);
+      color: var(--text);
+    }
+
+    .tab .dot {
+      display: inline-block;
+      width: 7px; height: 7px;
+      border-radius: 50%;
+      margin-right: 7px;
+      vertical-align: middle;
+    }
+
+    .panel {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 0 var(--radius) var(--radius) var(--radius);
+      margin: 0 40px;
+      padding: 32px;
+      min-height: 480px;
+    }
+
+    .section { display: none; }
+    .section.active { display: block; }
+
+    .search-row {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 28px;
+    }
+
+    .search-row input {
+      flex: 1;
+      padding: 10px 16px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 0.9rem;
+      background: var(--bg);
+      color: var(--text);
+      outline: none;
+      transition: border-color 0.15s;
+    }
+
+    .search-row input:focus { border-color: var(--accent); }
+
+    .btn {
+      padding: 10px 20px;
+      border-radius: 8px;
+      border: none;
+      cursor: pointer;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 0.88rem;
+      font-weight: 500;
+      transition: all 0.15s;
+    }
+
+    .btn-primary { background: var(--accent); color: white; }
+    .btn-primary:hover { background: #b3561f; }
+    .btn-ghost {
+      background: var(--bg);
+      color: var(--text);
+      border: 1px solid var(--border);
+    }
+    .btn-ghost:hover { background: var(--border); }
+
+    .cards {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+      gap: 16px;
+    }
+
+    .card-btn {
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+      transition: box-shadow 0.2s, transform 0.2s;
+      cursor: pointer;
+      background: var(--surface);
+      padding: 0;
+      text-align: left;
+      width: 100%;
+    }
+
+    .card-btn:hover {
+      box-shadow: var(--shadow);
+      transform: translateY(-2px);
+    }
+
+    .card-btn img {
+      width: 100%;
+      aspect-ratio: 4/3;
+      object-fit: cover;
+      display: block;
+    }
+
+    .card-body { padding: 14px; }
+
+    .card-label {
+      font-size: 0.7rem;
+      font-weight: 500;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin-bottom: 4px;
+    }
+
+    .card-btn h3 {
+      font-family: 'Playfair Display', serif;
+      font-size: 1rem;
+      font-weight: 400;
+      line-height: 1.3;
+    }
+
+    .card-btn p {
+      font-size: 0.8rem;
+      color: var(--muted);
+      margin-top: 4px;
+    }
+
+    .detail {
+      display: none;
+      animation: fadeIn 0.2s ease;
+    }
+
+    .detail.visible { display: block; }
+
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+
+    .detail-back {
+      background: none;
+      border: none;
+      cursor: pointer;
+      color: var(--muted);
+      font-size: 0.85rem;
+      font-family: 'DM Sans', sans-serif;
+      padding: 0;
+      margin-bottom: 20px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .detail-back:hover { color: var(--text); }
+
+    .detail-layout {
+      display: grid;
+      grid-template-columns: 280px 1fr;
+      gap: 32px;
+      align-items: start;
+    }
+
+    .detail-img {
+      width: 100%;
+      border-radius: var(--radius);
+      object-fit: cover;
+    }
+
+    .detail h2 {
+      font-family: 'Playfair Display', serif;
+      font-size: 1.7rem;
+      font-weight: 600;
+      margin-bottom: 6px;
+    }
+
+    .tag {
+      display: inline-block;
+      padding: 3px 10px;
+      border-radius: 20px;
+      font-size: 0.75rem;
+      font-weight: 500;
+      margin-bottom: 16px;
+    }
+
+    .detail-section { margin-top: 20px; }
+
+    .detail-section h4 {
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--muted);
+      margin-bottom: 10px;
+    }
+
+    .ingredients-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+
+    .ingredient-chip {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 4px 12px;
+      font-size: 0.82rem;
+    }
+
+    .instructions {
+      font-size: 0.88rem;
+      line-height: 1.75;
+      color: #333;
+      max-height: 250px;
+      overflow-y: auto;
+      padding-right: 8px;
+      white-space: pre-wrap;
+    }
+
+    .nutrition-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+      gap: 12px;
+      margin-top: 12px;
+    }
+
+    .nutrient-box {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 12px;
+      text-align: center;
+    }
+
+    .nutrient-box .val {
+      font-family: 'Playfair Display', serif;
+      font-size: 1.2rem;
+      color: var(--accent);
+    }
+
+    .nutrient-box .label {
+      font-size: 0.72rem;
+      color: var(--muted);
+      margin-top: 2px;
+    }
+
+    .status {
+      color: var(--muted);
+      font-size: 0.88rem;
+      padding: 40px 0;
+      text-align: center;
+    }
+
+    .loading { color: var(--muted); font-style: italic; }
+
+    .spinner-wrap { display: flex; flex-direction: column; align-items: center; gap: 14px; padding: 60px 0; }
+    .spinner {
+      width: 36px; height: 36px;
+      border: 3px solid var(--border);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 0.75s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .spinner-label { font-size: 0.85rem; color: var(--muted); }
+
+    .error { color: var(--accent); }
+    .config-note {
+      margin-top: 12px;
+      font-size: 0.82rem;
+      color: var(--muted);
+      line-height: 1.5;
+    }
+
+    @media (max-width: 640px) {
+      header { padding: 16px 20px; }
+      .tabs { padding: 20px 20px 0; }
+      .panel { margin: 0 20px; padding: 20px; }
+      .detail-layout { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>Food Dashboard</h1>
+  <span>Spoonacular · CocktailDB · Open Food Facts</span>
+</header>
+
+<div class="tabs" role="tablist" aria-label="Food dashboard sections">
+  <button class="tab active" id="tab-meals" role="tab" aria-selected="true" aria-controls="meals" onclick="switchTab('meals', this)">
+    <span class="dot" style="background:var(--meal)"></span>Meals
+  </button>
+  <button class="tab" id="tab-cocktails" role="tab" aria-selected="false" aria-controls="cocktails" onclick="switchTab('cocktails', this)">
+    <span class="dot" style="background:var(--cocktail)"></span>Cocktails
+  </button>
+  <button class="tab" id="tab-food" role="tab" aria-selected="false" aria-controls="food" onclick="switchTab('food', this)">
+    <span class="dot" style="background:var(--food)"></span>Food Facts
+  </button>
+</div>
+
+<div class="panel">
+
+  <div id="meals" class="section active" role="tabpanel" aria-labelledby="tab-meals">
+    <div id="meals-list">
+      <div class="search-row">
+        <input id="meal-input" type="text" placeholder="Search meals… e.g. chicken, pasta" onkeydown="if(event.key==='Enter')searchMeals()"/>
+        <button class="btn btn-primary" onclick="searchMeals()">Search</button>
+        <button class="btn btn-ghost" onclick="randomMeal()">Random</button>
+      </div>
+      <div id="meal-results" class="status">Search for a meal or hit Random to get started.</div>
+    </div>
+    <div id="meal-detail" class="detail"></div>
+  </div>
+
+  <div id="cocktails" class="section" role="tabpanel" aria-labelledby="tab-cocktails">
+    <div id="cocktails-list">
+      <div class="search-row">
+        <input id="cocktail-input" type="text" placeholder="Search cocktails… e.g. margarita, gin" onkeydown="if(event.key==='Enter')searchCocktails()"/>
+        <button class="btn btn-primary" onclick="searchCocktails()">Search</button>
+        <button class="btn btn-ghost" onclick="randomCocktail()">Random</button>
+      </div>
+      <div id="cocktail-results" class="status">Search for a cocktail or hit Random.</div>
+    </div>
+    <div id="cocktail-detail" class="detail"></div>
+  </div>
+
+  <div id="food" class="section" role="tabpanel" aria-labelledby="tab-food">
+    <div id="food-list">
+      <div class="search-row">
+        <input id="food-input" type="text" placeholder="Search by product name or barcode… e.g. nutella" onkeydown="if(event.key==='Enter')searchFood()"/>
+        <button class="btn btn-primary" onclick="searchFood()">Search</button>
+      </div>
+    </div>
+    <div id="food-results" class="status">Search for any food product to see nutritional info.</div>
+    <div id="food-detail" class="detail"></div>
+  </div>
+
+</div>
+
+<script>
+// Safer configuration: leave these empty in a client-side file.
+// Preferred: point spoonacularApiBase at your own backend proxy, e.g. "/api/spoonacular"
+const CONFIG = {
+  spoonacularApiBase: 'https://food-dashboard-proxy.YOUR-SUBDOMAIN.workers.dev/api/spoonacular',
+  spoonacularKey: '',
+};
+
+const COCKTAIL_TIMEOUT_MS = 8000;
+let _foodProducts = [];
+
+function escapeHtml(value) {
+  return String(value ?? '')
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#39;');
+}
+
+function safeUrl(value) {
+  try {
+    const url = new URL(String(value), window.location.href);
+    return ['http:', 'https:'].includes(url.protocol) ? url.href : '';
+  } catch {
+    return '';
+  }
+}
+
+function hideEl(id) {
+  const el = document.getElementById(id);
+  if (el) el.style.display = 'none';
+}
+
+function spinner(label) {
+  return `<div class="spinner-wrap"><div class="spinner"></div><div class="spinner-label">${escapeHtml(label)}</div></div>`;
+}
+
+function fetchWithTimeout(url, ms) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), ms);
+  return fetch(url, { signal: controller.signal }).finally(() => clearTimeout(timer));
+}
+
+function switchTab(id, el) {
+  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t => {
+    t.classList.remove('active');
+    t.setAttribute('aria-selected', 'false');
+  });
+  document.getElementById(id).classList.add('active');
+  el.classList.add('active');
+  el.setAttribute('aria-selected', 'true');
+}
+
+function renderCards(containerId, items, renderFn) {
+  const el = document.getElementById(containerId);
+  if (!items || items.length === 0) {
+    el.innerHTML = '<div class="status">No results found.</div>';
+    return;
+  }
+  el.innerHTML = '<div class="cards">' + items.map(renderFn).join('') + '</div>';
+}
+
+function showList(section) {
+  const listId = `${section}-list`;
+  const detail = document.getElementById(`${section}-detail`);
+  detail.classList.remove('visible');
+  detail.innerHTML = '';
+  document.getElementById(listId).style.display = '';
+}
+
+function buildSpoonacularUrl(path, params = {}) {
+  const search = new URLSearchParams(params);
+
+  if (CONFIG.spoonacularApiBase) {
+    const base = CONFIG.spoonacularApiBase.replace(/\/+$/, '');
+    return `${base}${path}?${search.toString()}`;
+  }
+
+  if (CONFIG.spoonacularKey) {
+    search.set('apiKey', CONFIG.spoonacularKey);
+    return `https://api.spoonacular.com${path}?${search.toString()}`;
+  }
+
+  throw new Error('SPOONACULAR_NOT_CONFIGURED');
+}
+
+function spoonacularHelpMessage() {
+  return `
+    <div class="status error">Meals search is not configured.</div>
+    <div class="config-note">
+      Set <code>CONFIG.spoonacularApiBase</code> to your backend proxy (preferred), or
+      set <code>CONFIG.spoonacularKey</code> for local testing only.
+    </div>`;
+}
+
+// Meals
+async function searchMeals() {
+  const q = document.getElementById('meal-input').value.trim();
+  if (!q) return;
+
+  const el = document.getElementById('meal-results');
+  document.getElementById('meal-detail').classList.remove('visible');
+  document.getElementById('meals-list').style.display = '';
+  el.innerHTML = spinner('Searching recipes…');
+
+  try {
+    const url = buildSpoonacularUrl('/recipes/complexSearch', {
+      query: q,
+      number: '12',
+      addRecipeInformation: 'false',
+    });
+    const res = await fetch(url);
+    if (!res.ok) throw new Error(String(res.status));
+    const data = await res.json();
+    renderCards('meal-results', data.results, mealCard);
+  } catch (e) {
+    if (e.message === 'SPOONACULAR_NOT_CONFIGURED') {
+      el.innerHTML = spoonacularHelpMessage();
+      return;
+    }
+    el.innerHTML = `<div class="status error">Could not fetch recipes${e.message === '402' ? ' — daily API limit reached' : ''}. Please try again.</div>`;
+  }
+}
+
+async function randomMeal() {
+  const el = document.getElementById('meal-results');
+  document.getElementById('meal-detail').classList.remove('visible');
+  document.getElementById('meals-list').style.display = '';
+  el.innerHTML = spinner('Finding something delicious…');
+
+  try {
+    const url = buildSpoonacularUrl('/recipes/random', { number: '1' });
+    const res = await fetch(url);
+    if (!res.ok) throw new Error(String(res.status));
+    const data = await res.json();
+    if (!data.recipes?.[0]) throw new Error('No recipe found');
+    showMealDetail(data.recipes[0]);
+  } catch (e) {
+    if (e.message === 'SPOONACULAR_NOT_CONFIGURED') {
+      el.innerHTML = spoonacularHelpMessage();
+      return;
+    }
+    el.innerHTML = '<div class="status error">Could not fetch a random recipe. Please try again.</div>';
+  }
+}
+
+function mealCard(m) {
+  const title = escapeHtml(m.title);
+  const img = safeUrl(m.image);
+  return `<button class="card-btn" type="button" onclick="loadMealDetail(${Number(m.id)})" aria-label="Open ${title}">
+    ${img ? `<img src="${img}" alt="${title}" loading="lazy" onerror="this.style.display='none'"/>` : ''}
+    <div class="card-body">
+      <div class="card-label" style="color:var(--meal)">Recipe</div>
+      <h3>${title}</h3>
+    </div>
+  </button>`;
+}
+
+async function loadMealDetail(id) {
+  const det = document.getElementById('meal-detail');
+  det.innerHTML = spinner('Loading recipe…');
+  det.classList.add('visible');
+  hideEl('meals-list');
+
+  try {
+    const url = buildSpoonacularUrl(`/recipes/${encodeURIComponent(id)}/information`);
+    const res = await fetch(url);
+    if (!res.ok) throw new Error(String(res.status));
+    const m = await res.json();
+    showMealDetail(m);
+  } catch (e) {
+    const msg = e.message === 'SPOONACULAR_NOT_CONFIGURED'
+      ? 'Meals search is not configured.'
+      : 'Could not load recipe details.';
+    det.innerHTML = `<button class="detail-back" onclick="showList('meals')">← Back</button><div class="status error">${escapeHtml(msg)}</div>`;
+  }
+}
+
+function showMealDetail(m) {
+  const ingredients = (m.extendedIngredients || []).map(i => escapeHtml(i.original || ''));
+  const instructions = m.instructions
+    ? m.instructions.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim()
+    : 'No instructions available.';
+  const tags = [m.cuisines?.[0], m.dishTypes?.[0]].filter(Boolean).map(escapeHtml).join(' · ');
+  const img = safeUrl(m.image);
+  const sourceUrl = safeUrl(m.sourceUrl);
+
+  const det = document.getElementById('meal-detail');
+  det.innerHTML = `
+    <button class="detail-back" onclick="showList('meals')">← Back to results</button>
+    <div class="detail-layout">
+      ${img ? `<img class="detail-img" src="${img}" alt="${escapeHtml(m.title)}" onerror="this.style.display='none'"/>` : '<div></div>'}
+      <div>
+        <h2>${escapeHtml(m.title)}</h2>
+        ${tags ? `<span class="tag" style="background:var(--meal-light);color:var(--meal)">${tags}</span>` : ''}
+        ${m.readyInMinutes ? `<p style="font-size:0.82rem;color:var(--muted);margin-bottom:12px">⏱ ${escapeHtml(m.readyInMinutes)} min · ${escapeHtml(m.servings || '?')} servings</p>` : ''}
+        <div class="detail-section">
+          <h4>Ingredients</h4>
+          <div class="ingredients-list">${ingredients.map(i => `<span class="ingredient-chip">${i}</span>`).join('')}</div>
+        </div>
+        <div class="detail-section">
+          <h4>Instructions</h4>
+          <div class="instructions">${escapeHtml(instructions)}</div>
+        </div>
+        ${sourceUrl ? `<div class="detail-section"><a href="${sourceUrl}" target="_blank" rel="noopener noreferrer" class="btn btn-ghost" style="display:inline-block;text-decoration:none;margin-top:8px">↗ Full Recipe</a></div>` : ''}
+      </div>
+    </div>`;
+  det.classList.add('visible');
+  hideEl('meals-list');
+}
+
+// Cocktails
+async function searchCocktails() {
+  const q = document.getElementById('cocktail-input').value.trim();
+  if (!q) return;
+  const el = document.getElementById('cocktail-results');
+  document.getElementById('cocktail-detail').classList.remove('visible');
+  document.getElementById('cocktails-list').style.display = '';
+  el.innerHTML = spinner('Searching cocktails…');
+
+  try {
+    const res = await fetchWithTimeout(
+      `https://www.thecocktaildb.com/api/json/v1/1/search.php?s=${encodeURIComponent(q)}`,
+      COCKTAIL_TIMEOUT_MS
+    );
+    if (!res.ok) throw new Error(String(res.status));
+    const data = await res.json();
+    renderCards('cocktail-results', data.drinks, cocktailCard);
+  } catch (e) {
+    el.innerHTML = `<div class="status error">${e.name === 'AbortError' ? 'The CocktailDB API timed out after 8 seconds. Try again or search a different term.' : 'Failed to fetch cocktails.'}</div>`;
+  }
+}
+
+async function randomCocktail() {
+  const el = document.getElementById('cocktail-results');
+  document.getElementById('cocktail-detail').classList.remove('visible');
+  document.getElementById('cocktails-list').style.display = '';
+  el.innerHTML = spinner('Shaking something up…');
+
+  try {
+    const res = await fetchWithTimeout(
+      'https://www.thecocktaildb.com/api/json/v1/1/random.php',
+      COCKTAIL_TIMEOUT_MS
+    );
+    if (!res.ok) throw new Error(String(res.status));
+    const data = await res.json();
+    if (!data.drinks?.[0]) throw new Error('No cocktail found');
+    showCocktailDetail(data.drinks[0]);
+  } catch (e) {
+    el.innerHTML = `<div class="status error">${e.name === 'AbortError' ? 'The CocktailDB API timed out. Please try again.' : 'Failed to fetch cocktail.'}</div>`;
+  }
+}
+
+function cocktailCard(d) {
+  const id = JSON.stringify(String(d.idDrink ?? ''));
+  const img = safeUrl(d.strDrinkThumb);
+  const title = escapeHtml(d.strDrink);
+  return `<button class="card-btn" type="button" onclick='loadCocktailDetail(${id})' aria-label="Open ${title}">
+    ${img ? `<img src="${img}" alt="${title}" loading="lazy" onerror="this.style.display='none'"/>` : ''}
+    <div class="card-body">
+      <div class="card-label" style="color:var(--cocktail)">${escapeHtml(d.strAlcoholic || '')}</div>
+      <h3>${title}</h3>
+      <p>${escapeHtml(d.strCategory || '')}</p>
+    </div>
+  </button>`;
+}
+
+async function loadCocktailDetail(id) {
+  const det = document.getElementById('cocktail-detail');
+  det.innerHTML = spinner('Loading cocktail…');
+  det.classList.add('visible');
+  hideEl('cocktails-list');
+
+  try {
+    const res = await fetchWithTimeout(
+      `https://www.thecocktaildb.com/api/json/v1/1/lookup.php?i=${encodeURIComponent(id)}`,
+      COCKTAIL_TIMEOUT_MS
+    );
+    if (!res.ok) throw new Error(String(res.status));
+    const data = await res.json();
+    if (!data.drinks?.[0]) throw new Error('No cocktail found');
+    showCocktailDetail(data.drinks[0]);
+  } catch (e) {
+    det.innerHTML = `<button class="detail-back" onclick="showList('cocktails')">← Back</button><div class="status error">${e.name === 'AbortError' ? 'Request timed out. Please try again.' : 'Failed to load cocktail.'}</div>`;
+  }
+}
+
+function showCocktailDetail(d) {
+  const ingredients = [];
+  for (let i = 1; i <= 15; i++) {
+    const ing = d[`strIngredient${i}`];
+    const meas = d[`strMeasure${i}`];
+    if (ing && ing.trim()) ingredients.push(`${meas ? meas.trim() + ' ' : ''}${ing.trim()}`);
+  }
+  const img = safeUrl(d.strDrinkThumb);
+  const det = document.getElementById('cocktail-detail');
+  det.innerHTML = `
+    <button class="detail-back" onclick="showList('cocktails')">← Back to results</button>
+    <div class="detail-layout">
+      ${img ? `<img class="detail-img" src="${img}" alt="${escapeHtml(d.strDrink)}" onerror="this.style.display='none'"/>` : '<div></div>'}
+      <div>
+        <h2>${escapeHtml(d.strDrink)}</h2>
+        <span class="tag" style="background:var(--cocktail-light);color:var(--cocktail)">${escapeHtml(d.strAlcoholic || '')} · ${escapeHtml(d.strCategory || '')}</span>
+        <div class="detail-section">
+          <h4>Ingredients</h4>
+          <div class="ingredients-list">${ingredients.map(i => `<span class="ingredient-chip">${escapeHtml(i)}</span>`).join('')}</div>
+        </div>
+        <div class="detail-section">
+          <h4>Instructions</h4>
+          <div class="instructions">${escapeHtml(d.strInstructions || 'No instructions available.')}</div>
+        </div>
+        ${d.strGlass ? `<div class="detail-section"><h4>Glass</h4><p style="font-size:0.88rem">${escapeHtml(d.strGlass)}</p></div>` : ''}
+      </div>
+    </div>`;
+  det.classList.add('visible');
+  hideEl('cocktails-list');
+}
+
+// Food Facts
+async function searchFood() {
+  const q = document.getElementById('food-input').value.trim();
+  if (!q) return;
+
+  const el = document.getElementById('food-results');
+  document.getElementById('food-detail').classList.remove('visible');
+  document.getElementById('food-list').style.display = '';
+  el.innerHTML = spinner('Searching products…');
+
+  try {
+    const isBarcode = /^\d{8,14}$/.test(q);
+    const url = isBarcode
+      ? `https://world.openfoodfacts.org/api/v2/product/${encodeURIComponent(q)}.json?fields=code,product_name,image_front_small_url,brands,categories_tags,nutriments,ingredients_text,nutriscore_grade`
+      : `https://world.openfoodfacts.org/cgi/search.pl?search_terms=${encodeURIComponent(q)}&search_simple=1&action=process&json=1&page_size=12&fields=id,product_name,image_front_small_url,brands,categories_tags,nutriments,ingredients_text,nutriscore_grade`;
+
+    const res = await fetch(url);
+    if (!res.ok) throw new Error(String(res.status));
+    const data = await res.json();
+
+    _foodProducts = isBarcode
+      ? (data.product?.product_name ? [data.product] : [])
+      : (data.products || []).filter(p => p.product_name);
+
+    if (!_foodProducts.length) {
+      el.innerHTML = '<div class="status">No results found.</div>';
+      return;
+    }
+
+    el.innerHTML = '<div class="cards">' + _foodProducts.map((p, i) => foodCard(p, i)).join('') + '</div>';
+  } catch (e) {
+    console.error('Food Facts error:', e);
+    el.innerHTML = '<div class="status error">Failed to fetch food data.</div>';
+  }
+}
+
+function foodCard(p, i) {
+  const img = safeUrl(p.image_front_small_url);
+  const brand = p.brands ? p.brands.split(',')[0] : '';
+  return `<button class="card-btn" type="button" onclick="showFoodDetail(${Number(i)})" aria-label="Open ${escapeHtml(p.product_name)}">
+    ${img ? `<img src="${img}" alt="${escapeHtml(p.product_name)}" loading="lazy" onerror="this.style.display='none'"/>` : ''}
+    <div class="card-body">
+      <div class="card-label" style="color:var(--food)">${escapeHtml(brand)}</div>
+      <h3>${escapeHtml(p.product_name)}</h3>
+      ${p.nutriscore_grade ? `<p>Nutri-Score: ${escapeHtml(String(p.nutriscore_grade).toUpperCase())}</p>` : ''}
+    </div>
+  </button>`;
+}
+
+function showFoodDetail(i) {
+  const p = _foodProducts[i];
+  const n = p.nutriments || {};
+  const nutrients = [
+    { label: 'Energy', val: n['energy-kcal_100g'] ? Math.round(n['energy-kcal_100g']) + ' kcal' : '—' },
+    { label: 'Fat', val: n['fat_100g'] != null ? n['fat_100g'] + 'g' : '—' },
+    { label: 'Saturated Fat', val: n['saturated-fat_100g'] != null ? n['saturated-fat_100g'] + 'g' : '—' },
+    { label: 'Carbs', val: n['carbohydrates_100g'] != null ? n['carbohydrates_100g'] + 'g' : '—' },
+    { label: 'Sugars', val: n['sugars_100g'] != null ? n['sugars_100g'] + 'g' : '—' },
+    { label: 'Fiber', val: n['fiber_100g'] != null ? n['fiber_100g'] + 'g' : '—' },
+    { label: 'Protein', val: n['proteins_100g'] != null ? n['proteins_100g'] + 'g' : '—' },
+    { label: 'Salt', val: n['salt_100g'] != null ? n['salt_100g'] + 'g' : '—' },
+  ];
+  const img = safeUrl(p.image_front_small_url);
+  const brand = p.brands ? p.brands.split(',')[0] : '';
+  const det = document.getElementById('food-detail');
+  det.innerHTML = `
+    <button class="detail-back" onclick="showList('food')">← Back to results</button>
+    <div class="detail-layout">
+      ${img ? `<img class="detail-img" src="${img}" alt="${escapeHtml(p.product_name)}" onerror="this.style.display='none'"/>` : '<div></div>'}
+      <div>
+        <h2>${escapeHtml(p.product_name)}</h2>
+        <span class="tag" style="background:var(--food-light);color:var(--food)">${escapeHtml(brand || 'Unknown brand')}</span>
+        ${p.nutriscore_grade ? `<div style="margin-bottom:12px;font-size:0.88rem">Nutri-Score: <strong>${escapeHtml(String(p.nutriscore_grade).toUpperCase())}</strong></div>` : ''}
+        <div class="detail-section">
+          <h4>Nutrition per 100g</h4>
+          <div class="nutrition-grid">
+            ${nutrients.map(n => `<div class="nutrient-box"><div class="val">${escapeHtml(n.val)}</div><div class="label">${escapeHtml(n.label)}</div></div>`).join('')}
+          </div>
+        </div>
+        ${p.ingredients_text ? `<div class="detail-section"><h4>Ingredients</h4><p style="font-size:0.82rem;line-height:1.6;color:#555;margin-top:6px">${escapeHtml(p.ingredients_text)}</p></div>` : ''}
+      </div>
+    </div>`;
+  det.classList.add('visible');
+  hideEl('food-list');
+}
+</script>
+
+</body>
+</html>
