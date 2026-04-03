@@ -3,28 +3,29 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Food Dashboard</title>
+  <title>Eat-Drink</title>
   <!-- Meals: Spoonacular | Cocktails: CocktailDB (8s timeout) | Food: Open Food Facts -->
   <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;1,400&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet"/>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
     :root {
-      --bg: #f7f5f0;
-      --surface: #ffffff;
-      --border: #e8e4dc;
-      --text: #1a1714;
-      --muted: #8a847a;
-      --accent: #c8622a;
-      --accent-light: #f5ede6;
-      --meal: #2a6e4a;
-      --meal-light: #e8f2ec;
-      --cocktail: #3a4f7a;
-      --cocktail-light: #e8ecf4;
-      --food: #7a4a2a;
-      --food-light: #f2ece8;
+      --bg: #111315;
+      --surface: #1a1d21;
+      --surface-2: #22262b;
+      --border: #313741;
+      --text: #f4efe7;
+      --muted: #a8adb5;
+      --accent: #d97745;
+      --accent-light: #3a271f;
+      --meal: #63b985;
+      --meal-light: #173326;
+      --cocktail: #8aa7ff;
+      --cocktail-light: #1f2940;
+      --food: #d69a6a;
+      --food-light: #3a2a20;
       --radius: 12px;
-      --shadow: 0 1px 3px rgba(0,0,0,0.06), 0 4px 16px rgba(0,0,0,0.06);
+      --shadow: 0 8px 24px rgba(0,0,0,0.28);
     }
 
     body {
@@ -36,7 +37,7 @@
     }
 
     header {
-      background: var(--surface);
+      background: linear-gradient(180deg, #1b1f24 0%, var(--surface) 100%);
       border-bottom: 1px solid var(--border);
       padding: 20px 40px;
       display: flex;
@@ -70,6 +71,7 @@
       border-bottom: none;
       background: transparent;
       cursor: pointer;
+      box-shadow: inset 0 -1px 0 transparent;
       font-family: 'DM Sans', sans-serif;
       font-size: 0.85rem;
       font-weight: 500;
@@ -89,6 +91,7 @@
       background: var(--surface);
       border-color: var(--border);
       color: var(--text);
+      box-shadow: 0 -8px 18px rgba(0,0,0,0.12);
     }
 
     .tab .dot {
@@ -106,6 +109,7 @@
       margin: 0 40px;
       padding: 32px;
       min-height: 480px;
+      box-shadow: var(--shadow);
     }
 
     .section { display: none; }
@@ -130,7 +134,7 @@
       transition: border-color 0.15s;
     }
 
-    .search-row input:focus { border-color: var(--accent); }
+    .search-row input:focus { border-color: var(--accent); background: var(--surface); }
 
     .btn {
       padding: 10px 20px;
@@ -150,7 +154,7 @@
       color: var(--text);
       border: 1px solid var(--border);
     }
-    .btn-ghost:hover { background: var(--border); }
+    .btn-ghost:hover { background: var(--surface-2); }
 
     .cards {
       display: grid;
@@ -286,7 +290,7 @@
     .instructions {
       font-size: 0.88rem;
       line-height: 1.75;
-      color: #333;
+      color: var(--text);
       max-height: 250px;
       overflow-y: auto;
       padding-right: 8px;
@@ -359,16 +363,16 @@
 <body>
 
 <header>
-  <h1>Food Dashboard</h1>
+  <h1>Eat-Drink</h1>
   <span>Spoonacular · CocktailDB · Open Food Facts</span>
 </header>
 
 <div class="tabs" role="tablist" aria-label="Food dashboard sections">
   <button class="tab active" id="tab-meals" role="tab" aria-selected="true" aria-controls="meals" onclick="switchTab('meals', this)">
-    <span class="dot" style="background:var(--meal)"></span>Meals
+    <span class="dot" style="background:var(--meal)"></span>Eat
   </button>
   <button class="tab" id="tab-cocktails" role="tab" aria-selected="false" aria-controls="cocktails" onclick="switchTab('cocktails', this)">
-    <span class="dot" style="background:var(--cocktail)"></span>Cocktails
+    <span class="dot" style="background:var(--cocktail)"></span>Drink
   </button>
   <button class="tab" id="tab-food" role="tab" aria-selected="false" aria-controls="food" onclick="switchTab('food', this)">
     <span class="dot" style="background:var(--food)"></span>Food Facts
@@ -464,6 +468,19 @@ function switchTab(id, el) {
     t.classList.remove('active');
     t.setAttribute('aria-selected', 'false');
   });
+
+  ['meals', 'cocktails', 'food'].forEach(section => {
+    const detail = document.getElementById(`${section}-detail`);
+    const list = document.getElementById(`${section}-list`);
+    if (detail) {
+      detail.classList.remove('visible');
+      detail.innerHTML = '';
+    }
+    if (list) {
+      list.style.display = '';
+    }
+  });
+
   document.getElementById(id).classList.add('active');
   el.classList.add('active');
   el.setAttribute('aria-selected', 'true');
@@ -481,9 +498,22 @@ function renderCards(containerId, items, renderFn) {
 function showList(section) {
   const listId = `${section}-list`;
   const detail = document.getElementById(`${section}-detail`);
-  detail.classList.remove('visible');
-  detail.innerHTML = '';
-  document.getElementById(listId).style.display = '';
+  const list = document.getElementById(listId);
+
+  if (detail) {
+    detail.classList.remove('visible');
+    detail.innerHTML = '';
+  }
+  if (list) {
+    list.style.display = '';
+  }
+
+  if (section === 'food') {
+    const foodResults = document.getElementById('food-results');
+    if (foodResults) {
+      foodResults.style.display = '';
+    }
+  }
 }
 
 function buildSpoonacularUrl(path, params = {}) {
@@ -742,21 +772,30 @@ async function searchFood() {
   const el = document.getElementById('food-results');
   document.getElementById('food-detail').classList.remove('visible');
   document.getElementById('food-list').style.display = '';
+  el.style.display = '';
   el.innerHTML = spinner('Searching products…');
 
   try {
     const isBarcode = /^\d{8,14}$/.test(q);
-    const url = isBarcode
-      ? `https://world.openfoodfacts.org/api/v2/product/${encodeURIComponent(q)}.json?fields=code,product_name,image_front_small_url,brands,categories_tags,nutriments,ingredients_text,nutriscore_grade`
-      : `https://world.openfoodfacts.org/cgi/search.pl?search_terms=${encodeURIComponent(q)}&search_simple=1&action=process&json=1&page_size=12&fields=id,product_name,image_front_small_url,brands,categories_tags,nutriments,ingredients_text,nutriscore_grade`;
 
-    const res = await fetch(url);
-    if (!res.ok) throw new Error(String(res.status));
-    const data = await res.json();
-
-    _foodProducts = isBarcode
-      ? (data.product?.product_name ? [data.product] : [])
-      : (data.products || []).filter(p => p.product_name);
+    let data;
+    if (isBarcode) {
+      const barcodeUrl = `https://world.openfoodfacts.org/api/v2/product/${encodeURIComponent(q)}.json?fields=code,product_name,image_front_small_url,brands,categories_tags,nutriments,ingredients_text,nutriscore_grade`;
+      const res = await fetch(barcodeUrl);
+      if (!res.ok) throw new Error(String(res.status));
+      data = await res.json();
+      _foodProducts = data.product?.product_name ? [data.product] : [];
+    } else {
+      const v2Url = `https://world.openfoodfacts.org/api/v2/search?search_terms=${encodeURIComponent(q)}&page_size=12&fields=code,product_name,image_front_small_url,brands,categories_tags,nutriments,ingredients_text,nutriscore_grade`;
+      let res = await fetch(v2Url);
+      if (!res.ok) {
+        const fallbackUrl = `https://world.openfoodfacts.org/cgi/search.pl?search_terms=${encodeURIComponent(q)}&search_simple=1&action=process&json=1&page_size=12&fields=code,product_name,image_front_small_url,brands,categories_tags,nutriments,ingredients_text,nutriscore_grade`;
+        res = await fetch(fallbackUrl);
+      }
+      if (!res.ok) throw new Error(String(res.status));
+      data = await res.json();
+      _foodProducts = (data.products || []).filter(p => p.product_name);
+    }
 
     if (!_foodProducts.length) {
       el.innerHTML = '<div class="status">No results found.</div>';
@@ -813,7 +852,7 @@ function showFoodDetail(i) {
             ${nutrients.map(n => `<div class="nutrient-box"><div class="val">${escapeHtml(n.val)}</div><div class="label">${escapeHtml(n.label)}</div></div>`).join('')}
           </div>
         </div>
-        ${p.ingredients_text ? `<div class="detail-section"><h4>Ingredients</h4><p style="font-size:0.82rem;line-height:1.6;color:#555;margin-top:6px">${escapeHtml(p.ingredients_text)}</p></div>` : ''}
+        ${p.ingredients_text ? `<div class="detail-section"><h4>Ingredients</h4><p style="font-size:0.82rem;line-height:1.6;color:var(--muted);margin-top:6px">${escapeHtml(p.ingredients_text)}</p></div>` : ''}
       </div>
     </div>`;
   det.classList.add('visible');
